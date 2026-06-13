@@ -144,10 +144,11 @@ class Alps(CMakePackage):
 
         # MPI support
         if self.spec.satisfies("+mpi"):
+            args.append(self.define("ALPS_ENABLE_MPI", True))
             args.append(self.define("MPI_CXX_COMPILER", self.spec["mpi"].mpicxx))
             args.append(self.define("MPI_C_COMPILER", self.spec["mpi"].mpicc))
         else:
-            args.append(self.define("ENABLE_MPI", False))
+            args.append(self.define("ALPS_ENABLE_MPI", False))
 
         # RPATH settings
         args.append(self.define("CMAKE_INSTALL_RPATH_USE_LINK_PATH", True))
