@@ -14,7 +14,7 @@ class Alps(CMakePackage):
     algorithm for many others.
     """
 
-    homepage = "https://github.com/ALPSim/ALPS"
+    homepage = "https://alps.comp-phys.org"
     git = "https://github.com/ALPSim/ALPS.git"
 
     maintainers("Ooolab", "egull", "Sinan81")
