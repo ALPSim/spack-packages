@@ -30,9 +30,10 @@ class Alps(CMakePackage):
     depends_on("fortran", type="build")
 
     # Compiled Boost with all required library components.
-    # ALPS_USE_SYSTEM_BOOST=ON consumes this instead of downloading Boost from source.
+    # Minimum 1.69: boost::system became header-only in 1.69; ALPS_USE_SYSTEM_BOOST
+    # omits it from the explicit link list, which is only valid for Boost >= 1.69.
     depends_on(
-        "boost@1.63:"
+        "boost@1.69:"
         "+filesystem+serialization+system+program_options"
         "+regex+thread+date_time+chrono+timer+iostreams+test+python",
         type=("build", "link"),
@@ -41,9 +42,9 @@ class Alps(CMakePackage):
     depends_on("boost~mpi", when="~mpi")
     # Boost.Python numpy submodule needs boost+numpy when it is safe to use:
     # Boost >= 1.87 fixed NumPy 2.0 support; older Boost is safe only with NumPy < 2.
-    # For Boost 1.63-1.86 + NumPy >= 2.0, ALPS falls back to boost::python::numeric::array.
+    # For Boost 1.69-1.86 + NumPy >= 2.0, ALPS falls back to boost::python::numeric::array.
     depends_on("boost+numpy", when="^boost@1.87:")
-    depends_on("boost+numpy", when="^boost@1.63:1.86 ^py-numpy@:1")
+    depends_on("boost+numpy", when="^boost@1.69:1.86 ^py-numpy@:1")
 
     depends_on("fftw")
     depends_on("lapack")
@@ -59,13 +60,7 @@ class Alps(CMakePackage):
     extends("python")
 
     def cmake_args(self):
-        cxx_flags = (
-            self.compiler.cxx14_flag
-            + " -fpermissive -DBOOST_NO_AUTO_PTR -DBOOST_FILESYSTEM_NO_CXX20_ATOMIC_REF"
-            + " -DBOOST_TIMER_ENABLE_DEPRECATED"
-        )
         args = [
-            self.define("CMAKE_CXX_FLAGS", cxx_flags),
             self.define("ALPS_USE_SYSTEM_BOOST", True),
             self.define("BOOST_ROOT", self.spec["boost"].prefix),
             self.define("Boost_USE_STATIC_LIBS", self.spec["boost"].satisfies("~shared")),
