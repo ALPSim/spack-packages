@@ -19,7 +19,7 @@ class Alps(CMakePackage):
 
     maintainers("Ooolab", "egull", "Sinan81")
 
-    license("MIT")
+    license("MIT", checked_by="egull")
 
     version("develop", branch="fix/system-boost-numpy-fallback")
 
