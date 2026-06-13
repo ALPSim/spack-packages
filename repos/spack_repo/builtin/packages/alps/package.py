@@ -32,7 +32,7 @@ class Alps(CMakePackage):
     # Compiled Boost with all required library components.
     # ALPS_USE_SYSTEM_BOOST=ON consumes this instead of downloading Boost from source.
     depends_on(
-        "boost@1.80:"
+        "boost@1.63:"
         "+filesystem+serialization+system+program_options"
         "+regex+thread+date_time+chrono+timer+iostreams+test+python",
         type=("build", "link"),
