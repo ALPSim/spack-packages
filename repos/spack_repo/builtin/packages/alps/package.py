@@ -58,22 +58,6 @@ class Alps(CMakePackage):
 
     extends("python")
 
-    def patch(self):
-        # Boost >= 1.88 moved boost::is_same / boost::add_const to std::
-        if "boost" not in self.spec or self.spec["boost"].version <= Version("1.87"):
-            return
-        for path in [
-            "src/alps/numeric/matrix/strided_iterator.hpp",
-            "src/alps/numeric/matrix/matrix_element_iterator.hpp",
-        ]:
-            filter_file(
-                "#include <boost/type_traits.hpp>",
-                "#include <boost/type_traits.hpp>\n#include <type_traits>",
-                path,
-            )
-            filter_file("boost::is_same", "std::is_same", path)
-            filter_file("boost::add_const", "std::add_const", path)
-
     def cmake_args(self):
         cstdlibstr = " -stdlib=libc++" if self.spec.satisfies("platform=darwin") else ""
         cxx_flags = (
