@@ -59,12 +59,10 @@ class Alps(CMakePackage):
     extends("python")
 
     def cmake_args(self):
-        cstdlibstr = " -stdlib=libc++" if self.spec.satisfies("platform=darwin") else ""
         cxx_flags = (
             self.compiler.cxx14_flag
             + " -fpermissive -DBOOST_NO_AUTO_PTR -DBOOST_FILESYSTEM_NO_CXX20_ATOMIC_REF"
             + " -DBOOST_TIMER_ENABLE_DEPRECATED"
-            + cstdlibstr
         )
         args = [
             self.define("CMAKE_CXX_FLAGS", cxx_flags),
