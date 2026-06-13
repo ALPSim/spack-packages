@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-import os
-
 from spack_repo.builtin.build_systems.cmake import CMakePackage
 
 from spack.package import *
@@ -18,12 +16,14 @@ class Alps(CMakePackage):
 
     homepage = "https://github.com/ALPSim/ALPS"
     url = "https://github.com/ALPSim/ALPS/archive/refs/tags/v2.3.4-beta.2.tar.gz"
+    git = "https://github.com/ALPSim/ALPS.git"
 
     maintainers("Ooolab", "egull", "Sinan81")
 
     license("BSL-1.0", when="@:2.3.3", checked_by="Sinan81")
     license("MIT", when="@2.3.4:", checked_by="Ooolab")
 
+    version("develop", branch="fix/system-boost-numpy-fallback")
     version(
         "2.3.4-beta.2",
         sha256="ca2e1307630e6fccac279ab7711036f7c6dee43c386fd6f24cfc77c86a3c7f1c",
@@ -36,9 +36,25 @@ class Alps(CMakePackage):
     depends_on("c", type="build")
     depends_on("cxx", type="build")
     depends_on("fortran", type="build")
+
+    # Boost: compiled dependency with all required library variants.
+    # ALPS uses ALPS_USE_SYSTEM_BOOST=ON to consume Spack-built Boost directly
+    # instead of downloading and compiling Boost from source internally.
     depends_on(
-        "boost@1.80:", type="build"
-    )  # Just for headers. Note that the checksums are listed below
+        "boost@1.80:"
+        "+filesystem+serialization+system+program_options"
+        "+regex+thread+date_time+chrono+timer+iostreams+test+python",
+        type=("build", "link"),
+    )
+    depends_on("boost+mpi", when="+mpi")
+    depends_on("boost~mpi", when="~mpi")
+    # Boost.Python numpy submodule: only safe when Boost >= 1.87 (fixed for
+    # NumPy 2.0), or when Boost < 1.87 is paired with NumPy < 2.0.
+    # For Boost 1.63-1.86 + NumPy >= 2.0, ALPS falls back automatically to
+    # boost::python::numeric::array — no boost+numpy needed in that case.
+    depends_on("boost+numpy", when="^boost@1.87:")
+    depends_on("boost+numpy", when="^boost@1.63:1.86 ^py-numpy@:1")
+
     depends_on("fftw")
     depends_on("lapack")
     depends_on("python", type=("build", "link", "run"))
@@ -51,32 +67,6 @@ class Alps(CMakePackage):
     depends_on("zlib-api")
 
     extends("python")
-
-    # See https://github.com/ALPSim/ALPS/issues/6#issuecomment-2604912169
-    # for why this is needed
-    for boost_version, boost_checksum in (
-        # boost version, shasum
-        ("1.89.0", "85a33fa22621b4f314f8e85e1a5e2a9363d22e4f4992925d4bb3bc631b5a0c7a"),
-        ("1.88.0", "46d9d2c06637b219270877c9e16155cbd015b6dc84349af064c088e9b5b12f7b"),
-        ("1.87.0", "af57be25cb4c4f4b413ed692fe378affb4352ea50fbe294a11ef548f4d527d89"),
-        ("1.86.0", "1bed88e40401b2cb7a1f76d4bab499e352fa4d0c5f31c0dbae64e24d34d7513b"),
-        ("1.85.0", "7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617"),
-        ("1.84.0", "cc4b893acf645c9d4b698e9a0f08ca8846aa5d6c68275c14c3e7949c24109454"),
-        ("1.83.0", "6478edfe2f3305127cffe8caf73ea0176c53769f4bf1585be237eb30798c3b8e"),
-        ("1.82.0", "a6e1ab9b0860e6a2881dd7b21fe9f737a095e5f33a3a874afc6a345228597ee6"),
-        ("1.81.0", "71feeed900fbccca04a3b4f2f84a7c217186f28a940ed8b7ed4725986baf99fa"),
-        ("1.80.0", "1e19565d82e43bc59209a168f5ac899d3ba471d55c7610c677d4ccf2c9c500c0"),
-    ):
-        resource(
-            when="^boost@{0}".format(boost_version),
-            name="boost_source_files",
-            url="https://downloads.sourceforge.net/project/boost/boost/{0}/boost_{1}.tar.bz2".format(
-                boost_version, boost_version.replace(".", "_")
-            ),
-            sha256=boost_checksum,
-            destination="",
-            placement="boost_source_files",
-        )
 
     # Patch for >=Boost 1.88.0 compatibility
     def patch(self):
@@ -146,15 +136,11 @@ class Alps(CMakePackage):
 
         args.append(self.define("CMAKE_CXX_FLAGS", cxx_flags))
 
-        # Boost source directory
-        boost_src_dir = os.path.join(self.stage.source_path, "boost_source_files")
-        args.append(self.define("Boost_SRC_DIR", boost_src_dir))
-
-        # Boost linking options
-        args.append(self.define("Boost_USE_STATIC_LIBS", True))  # → -DBoost_USE_STATIC_LIBS=ON
-        args.append(
-            self.define("Boost_USE_STATIC_RUNTIME", False)
-        )  # → -DBoost_USE_STATIC_RUNTIME=OFF
+        # Use Spack-installed Boost instead of building from source
+        args.append(self.define("ALPS_USE_SYSTEM_BOOST", True))
+        args.append(self.define("BOOST_ROOT", self.spec["boost"].prefix))
+        # Match the static/shared choice Spack built Boost with
+        args.append(self.define("Boost_USE_STATIC_LIBS", self.spec["boost"].satisfies("~shared")))
 
         # MPI support
         if self.spec.satisfies("+mpi"):
@@ -173,10 +159,8 @@ class Alps(CMakePackage):
         return args
 
     def setup_build_environment(self, env):
-        # Set up environment for boost source compilation
-        boost_src_dir = os.path.join(self.stage.source_path, "boost_source_files")
-        env.set("BOOST_ROOT", boost_src_dir)
-        env.set("Boost_SRC_DIR", boost_src_dir)
+        # Point to Spack's installed Boost
+        env.set("BOOST_ROOT", self.spec["boost"].prefix)
 
         # Include paths for compilation
         env.append_path("CPLUS_INCLUDE_PATH", self.spec["python"].headers.directories[0])
@@ -188,7 +172,7 @@ class Alps(CMakePackage):
             env.set("MPICXX", self.spec["mpi"].mpicxx)
 
         # Add MPI include path if available
-        if hasattr(self.spec["mpi"], "headers"):
+        if "+mpi" in self.spec and hasattr(self.spec["mpi"], "headers"):
             env.append_path("CPLUS_INCLUDE_PATH", self.spec["mpi"].headers.directories[0])
 
         # For Python
