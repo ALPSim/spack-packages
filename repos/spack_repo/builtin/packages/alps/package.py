@@ -25,7 +25,7 @@ class Alps(CMakePackage):
     # v2.3.3's LICENSE.txt is already the MIT license
     license("MIT", checked_by="egull")
 
-    version("develop", branch="fix/system-boost-numpy-fallback")
+    version("develop", branch="master")
     version(
         "2.3.4-beta.2",
         sha256="ca2e1307630e6fccac279ab7711036f7c6dee43c386fd6f24cfc77c86a3c7f1c",
@@ -37,7 +37,9 @@ class Alps(CMakePackage):
 
     depends_on("c", type="build")
     depends_on("cxx", type="build")
-    depends_on("fortran", type="build")
+    # No fortran: ALPS_BUILD_FORTRAN defaults OFF and is not enabled here
+
+    depends_on("cmake@3.18:", type="build")
 
     # --- Boost, two schemes ---
     # @develop consumes an externally built (Spack) Boost via ALPS_USE_SYSTEM_BOOST.
@@ -70,13 +72,14 @@ class Alps(CMakePackage):
     # otherwise pull in an MPI that ALPS's CMake then finds and links.
     depends_on("fftw~mpi", when="~mpi")
     depends_on("lapack")
-    depends_on("python", type=("build", "link", "run"))
+    depends_on("python@3.9:", type=("build", "link", "run"))
     depends_on("py-numpy", type=("build", "run"))
     depends_on("py-scipy", type=("build", "run"))
     depends_on("py-matplotlib", type=("build", "run"))
     depends_on("mpi", when="+mpi")
-    depends_on("hdf5+mpi+hl", when="+mpi")
-    depends_on("hdf5~mpi+hl", when="~mpi")
+    # Serial HDF5 even for +mpi: ALPS's CMakeLists warns "ALPS does not use
+    # parallel HDF5. The standard version is preferred."
+    depends_on("hdf5~mpi+hl")
     depends_on("zlib-api")
 
     extends("python")
@@ -168,6 +171,9 @@ class Alps(CMakePackage):
             # ALPS's cache variable is ALPS_ENABLE_MPI and defaults to ON,
             # so it must be set OFF explicitly for ~mpi
             self.define_from_variant("ALPS_ENABLE_MPI", "mpi"),
+            # Explicit rather than relying on the double-negative
+            # NOT_ALPS_BUILD_PYTHON default in ALPS's CMakeLists
+            self.define("ALPS_BUILD_PYTHON", True),
             self.define("CMAKE_INSTALL_RPATH_USE_LINK_PATH", True),
             self.define("CMAKE_BUILD_WITH_INSTALL_RPATH", True),
             self.define("HDF5_DIR", self.spec["hdf5"].prefix),
