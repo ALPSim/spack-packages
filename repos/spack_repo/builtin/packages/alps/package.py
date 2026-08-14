@@ -25,7 +25,7 @@ class Alps(CMakePackage):
     # v2.3.3's LICENSE.txt is already the MIT license
     license("MIT", checked_by="egull")
 
-    version("develop", branch="master")
+    version("master", branch="master")
     version(
         "2.3.4-beta.2",
         sha256="ca2e1307630e6fccac279ab7711036f7c6dee43c386fd6f24cfc77c86a3c7f1c",
@@ -42,7 +42,7 @@ class Alps(CMakePackage):
     depends_on("cmake@3.18:", type="build")
 
     # --- Boost, two schemes ---
-    # @develop consumes an externally built (Spack) Boost via ALPS_USE_SYSTEM_BOOST.
+    # @master consumes an externally built (Spack) Boost via ALPS_USE_SYSTEM_BOOST.
     # Compiled Boost with all required library components.
     # Minimum 1.69: boost::system became header-only in 1.69; ALPS_USE_SYSTEM_BOOST
     # omits it from the explicit link list, which is only valid for Boost >= 1.69.
@@ -51,15 +51,15 @@ class Alps(CMakePackage):
         "+filesystem+serialization+system+program_options"
         "+regex+thread+date_time+chrono+timer+iostreams+test+python",
         type=("build", "link"),
-        when="@develop",
+        when="@master",
     )
-    depends_on("boost+mpi", when="@develop +mpi")
-    depends_on("boost~mpi", when="@develop ~mpi")
+    depends_on("boost+mpi", when="@master +mpi")
+    depends_on("boost~mpi", when="@master ~mpi")
     # Boost.Python numpy submodule needs boost+numpy when it is safe to use:
     # Boost >= 1.87 fixed NumPy 2.0 support; older Boost is safe only with NumPy < 2.
     # For Boost 1.69-1.86 + NumPy >= 2.0, ALPS falls back to boost::python::numeric::array.
-    depends_on("boost+numpy", when="@develop ^boost@1.87:")
-    depends_on("boost+numpy", when="@develop ^boost@1.69:1.86 ^py-numpy@:1")
+    depends_on("boost+numpy", when="@master ^boost@1.87:")
+    depends_on("boost+numpy", when="@master ^boost@1.69:1.86 ^py-numpy@:1")
 
     # Released versions compile Boost from a source tree staged as a resource;
     # this dependency only selects which source tarball resource is staged
@@ -113,9 +113,9 @@ class Alps(CMakePackage):
         )
 
     # Patch for >=Boost 1.88.0 compatibility (released versions only; the
-    # develop branch already carries these fixes in the ALPS sources)
+    # master branch already carries these fixes in the ALPS sources)
     def patch(self):
-        if self.spec.satisfies("@develop"):
+        if self.spec.satisfies("@master"):
             return
 
         # Only apply patch for Boost versions greater than 1.87
@@ -185,7 +185,7 @@ class Alps(CMakePackage):
                 self.define("MPI_C_COMPILER", self.spec["mpi"].mpicc),
             ]
 
-        if self.spec.satisfies("@develop"):
+        if self.spec.satisfies("@master"):
             # Consume the Spack-built Boost directly
             args += [
                 self.define("ALPS_USE_SYSTEM_BOOST", True),
@@ -230,7 +230,7 @@ class Alps(CMakePackage):
             if hasattr(self.spec["mpi"], "headers"):
                 env.append_path("CPLUS_INCLUDE_PATH", self.spec["mpi"].headers.directories[0])
 
-        if self.spec.satisfies("@develop"):
+        if self.spec.satisfies("@master"):
             # BOOST_ROOT as env var for FindBoost module-mode detection
             env.set("BOOST_ROOT", self.spec["boost"].prefix)
         else:
