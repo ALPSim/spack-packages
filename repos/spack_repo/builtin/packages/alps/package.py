@@ -58,8 +58,8 @@ class Alps(CMakePackage):
     # Boost.Python numpy submodule needs boost+numpy when it is safe to use:
     # Boost >= 1.87 fixed NumPy 2.0 support; older Boost is safe only with NumPy < 2.
     # For Boost 1.69-1.86 + NumPy >= 2.0, ALPS falls back to boost::python::numeric::array.
-    depends_on("boost+numpy", when="@master ^boost@1.87:")
-    depends_on("boost+numpy", when="@master ^boost@1.69:1.86 ^py-numpy@:1")
+    requires("^boost+numpy", when="@master ^boost@1.87:")
+    requires("^boost+numpy", when="@master ^boost@1.69:1.86 ^py-numpy@:1")
 
     # Released versions compile Boost from a source tree staged as a resource;
     # this dependency only selects which source tarball resource is staged
