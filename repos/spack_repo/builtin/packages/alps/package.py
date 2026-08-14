@@ -21,8 +21,8 @@ class Alps(CMakePackage):
 
     maintainers("Ooolab", "egull", "Sinan81")
 
-    license("BSL-1.0", when="@:2.3.3", checked_by="Sinan81")
-    license("MIT", when="@2.3.4:", checked_by="Ooolab")
+    # v2.3.3's LICENSE.txt is already the MIT license
+    license("MIT", checked_by="Ooolab")
 
     version(
         "2.3.4-beta.2",
@@ -36,10 +36,13 @@ class Alps(CMakePackage):
     depends_on("c", type="build")
     depends_on("cxx", type="build")
     depends_on("fortran", type="build")
-    depends_on(
-        "boost@1.80:", type="build"
-    )  # Just for headers. Note that the checksums are listed below
+    # Selects which boost source tarball resource is staged (see resources below).
+    # Upper bound must match the last entry in the resource table.
+    depends_on("boost@1.80:1.90", type="build")
     depends_on("fftw")
+    # Keep the DAG truly serial for ~mpi: fftw defaults to +mpi, which would
+    # otherwise pull in an MPI that ALPS's CMake then finds and links.
+    depends_on("fftw~mpi", when="~mpi")
     depends_on("lapack")
     depends_on("python", type=("build", "link", "run"))
     depends_on("py-numpy", type=("build", "run"))
@@ -56,6 +59,7 @@ class Alps(CMakePackage):
     # for why this is needed
     for boost_version, boost_checksum in (
         # boost version, shasum
+        ("1.90.0", "49551aff3b22cbc5c5a9ed3dbc92f0e23ea50a0f7325b0d198b705e8ee3fc305"),
         ("1.89.0", "85a33fa22621b4f314f8e85e1a5e2a9363d22e4f4992925d4bb3bc631b5a0c7a"),
         ("1.88.0", "46d9d2c06637b219270877c9e16155cbd015b6dc84349af064c088e9b5b12f7b"),
         ("1.87.0", "af57be25cb4c4f4b413ed692fe378affb4352ea50fbe294a11ef548f4d527d89"),
@@ -156,12 +160,12 @@ class Alps(CMakePackage):
             self.define("Boost_USE_STATIC_RUNTIME", False)
         )  # → -DBoost_USE_STATIC_RUNTIME=OFF
 
-        # MPI support
+        # MPI support (ALPS's cache variable is ALPS_ENABLE_MPI and defaults to ON,
+        # so it must be set OFF explicitly for ~mpi)
+        args.append(self.define_from_variant("ALPS_ENABLE_MPI", "mpi"))
         if self.spec.satisfies("+mpi"):
             args.append(self.define("MPI_CXX_COMPILER", self.spec["mpi"].mpicxx))
             args.append(self.define("MPI_C_COMPILER", self.spec["mpi"].mpicc))
-        else:
-            args.append(self.define("ENABLE_MPI", False))
 
         # RPATH settings
         args.append(self.define("CMAKE_INSTALL_RPATH_USE_LINK_PATH", True))
@@ -186,10 +190,8 @@ class Alps(CMakePackage):
             env.set("MPI_CXX", self.spec["mpi"].mpicxx)
             env.set("MPI_CC", self.spec["mpi"].mpicc)
             env.set("MPICXX", self.spec["mpi"].mpicxx)
-
-        # Add MPI include path if available
-        if hasattr(self.spec["mpi"], "headers"):
-            env.append_path("CPLUS_INCLUDE_PATH", self.spec["mpi"].headers.directories[0])
+            if hasattr(self.spec["mpi"], "headers"):
+                env.append_path("CPLUS_INCLUDE_PATH", self.spec["mpi"].headers.directories[0])
 
         # For Python
         env.set("PYTHON", self.spec["python"].command.path)
