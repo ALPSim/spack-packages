@@ -40,9 +40,11 @@ class Alps(CMakePackage):
     # No fortran: ALPS_BUILD_FORTRAN defaults OFF and is not enabled here
 
     depends_on("cmake@3.18:", type="build")
+    depends_on("cmake@3.22:", type="build", when="@3:")
 
     # --- Boost, two schemes ---
-    # @master consumes an externally built (Spack) Boost via ALPS_USE_SYSTEM_BOOST.
+    # @3: consumes an externally built (Spack) Boost via ALPS_USE_SYSTEM_BOOST.
+    # Spack's infinity-version ordering means that @master also satisfies @3:.
     # Compiled Boost with all required library components.
     # Minimum 1.69: boost::system became header-only in 1.69; ALPS_USE_SYSTEM_BOOST
     # omits it from the explicit link list, which is only valid for Boost >= 1.69.
@@ -51,17 +53,17 @@ class Alps(CMakePackage):
         "+filesystem+serialization+system+program_options"
         "+regex+thread+date_time+chrono+timer+iostreams+test+python",
         type=("build", "link"),
-        when="@master",
+        when="@3:",
     )
-    depends_on("boost+mpi", when="@master +mpi")
-    depends_on("boost~mpi", when="@master ~mpi")
+    depends_on("boost+mpi", when="@3: +mpi")
+    depends_on("boost~mpi", when="@3: ~mpi")
     # Boost.Python numpy submodule needs boost+numpy when it is safe to use:
     # Boost >= 1.87 fixed NumPy 2.0 support; older Boost is safe only with NumPy < 2.
     # For Boost 1.69-1.86 + NumPy >= 2.0, ALPS falls back to boost::python::numeric::array.
-    requires("^boost+numpy", when="@master ^boost@1.87:")
-    requires("^boost+numpy", when="@master ^boost@1.69:1.86 ^py-numpy@:1")
+    requires("^boost+numpy", when="@3: ^boost@1.87:")
+    requires("^boost+numpy", when="@3: ^boost@1.69:1.86 ^py-numpy@:1")
 
-    # Released versions compile Boost from a source tree staged as a resource;
+    # Legacy 2.x releases compile Boost from a source tree staged as a resource;
     # this dependency only selects which source tarball resource is staged
     # (see the resource table below). Upper bound must match the last entry
     # in that table.
@@ -84,7 +86,7 @@ class Alps(CMakePackage):
 
     extends("python")
 
-    # Boost source tree for released versions, which build Boost themselves.
+    # Boost source tree for legacy 2.x releases, which build Boost themselves.
     # See https://github.com/ALPSim/ALPS/issues/6#issuecomment-2604912169
     # for why this is needed
     for boost_version, boost_checksum in (
@@ -112,10 +114,10 @@ class Alps(CMakePackage):
             placement="boost_source_files",
         )
 
-    # Patch for >=Boost 1.88.0 compatibility (released versions only; the
-    # master branch already carries these fixes in the ALPS sources)
+    # Patch for >=Boost 1.88.0 compatibility (legacy 2.x releases only; the
+    # 3.x sources already carry these fixes)
     def patch(self):
-        if self.spec.satisfies("@master"):
+        if self.spec.satisfies("@3:"):
             return
 
         # Only apply patch for Boost versions greater than 1.87
@@ -185,7 +187,7 @@ class Alps(CMakePackage):
                 self.define("MPI_C_COMPILER", self.spec["mpi"].mpicc),
             ]
 
-        if self.spec.satisfies("@master"):
+        if self.spec.satisfies("@3:"):
             # Consume the Spack-built Boost directly
             args += [
                 self.define("ALPS_USE_SYSTEM_BOOST", True),
@@ -193,7 +195,7 @@ class Alps(CMakePackage):
                 self.define("Boost_USE_STATIC_LIBS", self.spec["boost"].satisfies("~shared")),
             ]
         else:
-            # Released versions build Boost from the staged source tree.
+            # Legacy 2.x releases build Boost from the staged source tree.
             # Platform-specific C++ flags: -stdlib=libc++ defeats ALPS's
             # obsolete clang logic that would otherwise force libstdc++
             cstdlibstr = ""
@@ -230,7 +232,7 @@ class Alps(CMakePackage):
             if hasattr(self.spec["mpi"], "headers"):
                 env.append_path("CPLUS_INCLUDE_PATH", self.spec["mpi"].headers.directories[0])
 
-        if self.spec.satisfies("@master"):
+        if self.spec.satisfies("@3:"):
             # BOOST_ROOT as env var for FindBoost module-mode detection
             env.set("BOOST_ROOT", self.spec["boost"].prefix)
         else:
