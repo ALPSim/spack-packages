@@ -179,6 +179,12 @@ class Alps(CMakePackage):
             self.define("CMAKE_INSTALL_RPATH_USE_LINK_PATH", True),
             self.define("CMAKE_BUILD_WITH_INSTALL_RPATH", True),
             self.define("HDF5_DIR", self.spec["hdf5"].prefix),
+            # Hand the concretized BLAS/LAPACK to ALPS explicitly.  Its
+            # FindLapack.cmake otherwise probes the host first (MKLROOT in the
+            # environment, Accelerate on macOS) and links whatever it finds
+            # there instead of the Spack-built provider.
+            self.define("BLAS_LIBRARY", self.spec["blas"].libs.joined(";")),
+            self.define("LAPACK_LIBRARY", self.spec["lapack"].libs.joined(";")),
         ]
 
         if self.spec.satisfies("+mpi"):
